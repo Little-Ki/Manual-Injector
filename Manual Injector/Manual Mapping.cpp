@@ -126,7 +126,7 @@ DWORD __declspec(code_seg(".m")) _Shellcode(InjectData* params) {
     auto    NTRet           = &params->Info.NtStatus;
     auto    ErrorPtr        = &params->Info;
 
-    //图像重定位
+    // Image relocation
     INT_PTR Delta = ImageBase - OptHeader->ImageBase;
     if (Delta != 0) {
         if (!DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].Size) {
@@ -159,7 +159,7 @@ DWORD __declspec(code_seg(".m")) _Shellcode(InjectData* params) {
         OptHeader->ImageBase = ImageBase + Delta;
     }
 
-    // 修复导入表
+    // Fix import table
     if (DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size) {
         auto ImportDesc = ReCa<PIMAGE_IMPORT_DESCRIPTOR>(
             ImageBase + DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress
@@ -206,7 +206,7 @@ DWORD __declspec(code_seg(".m")) _Shellcode(InjectData* params) {
         }
     }
     
-    // 修复延迟导入表
+    // Fix delay import table
     if (DataDirectory[IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT].Size) {
         PIMAGE_DELAYLOAD_DESCRIPTOR DelayImportDir = reinterpret_cast<PIMAGE_DELAYLOAD_DESCRIPTOR>(
             ImageBase + DataDirectory[IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT].VirtualAddress
