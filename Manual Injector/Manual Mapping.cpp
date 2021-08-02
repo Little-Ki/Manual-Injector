@@ -259,7 +259,8 @@ DWORD __declspec(code_seg(".m")) _Shellcode(InjectData* params) {
         auto TlsDir = ReCa<PIMAGE_TLS_DIRECTORY>(
             ImageBase + DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].VirtualAddress
             );
-
+        /* Handle with tls data manually make crashed, temporarily cancel. */
+        /*
         if (!TEB->ThreadLocalStoragePointer) {
             TEB->ThreadLocalStoragePointer = _new<UINT_PTR>(n, 64);
         }
@@ -292,7 +293,7 @@ DWORD __declspec(code_seg(".m")) _Shellcode(InjectData* params) {
         }
         Array[TargetIdx] = ReCa<UINT_PTR>(Chunk);
         TlsDir->AddressOfIndex = TargetIdx;
-
+        */
         auto* Callbacks = ReCa<PIMAGE_TLS_CALLBACK*>(TlsDir->AddressOfCallBacks);
         while(Callbacks && (*Callbacks))
         {
