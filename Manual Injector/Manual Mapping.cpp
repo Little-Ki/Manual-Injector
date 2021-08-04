@@ -259,46 +259,50 @@ DWORD __declspec(code_seg(".m")) _Shellcode(InjectData* params) {
         auto TlsDir = ReCa<PIMAGE_TLS_DIRECTORY>(
             ImageBase + DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].VirtualAddress
             );
-        /* Handle with tls data manually make crashed, temporarily cancel. */
-        /*
-        if (!TEB->ThreadLocalStoragePointer) {
-            TEB->ThreadLocalStoragePointer = _new<UINT_PTR>(n, 64);
+
+        // ThreadLocalStoragePointer is PVOID[64], if not exists, alloc for it 
+        auto TLSP = &TEB->ThreadLocalStoragePointer;
+
+        if (!*TLSP) {
+            *TLSP = _new<UINT_PTR>(n, 64);
         }
 
-        if (!TEB->ThreadLocalStoragePointer) {
+        if (!*TLSP) {
             ErrorPtr->FailLine = __LINE__;
             return 0;
         }
 
-        auto Array     = ReCa<UINT_PTR*>(TEB->ThreadLocalStoragePointer);
-        
-        auto ChunkSize  = TlsDir->EndAddressOfRawData - TlsDir->StartAddressOfRawData;
+        // Alloc chunk and copy tls data
+        auto DataSize   = TlsDir->EndAddressOfRawData - TlsDir->StartAddressOfRawData;
+        auto TlsData    = _new<char>(n, DataSize + 1);
 
-        auto Chunk     = _new<INT8>(n, ChunkSize);
-        if (Chunk) {
+        if (!TlsData) {
+            _delete(n, *TLSP);
             ErrorPtr->FailLine = __LINE__;
             return 0;
         }
+        n->memcpy(TlsData, ReCa<PVOID>(TlsDir->StartAddressOfRawData), DataSize);
 
-        auto TlsDataPtr = ReCa<UINT8*>(ImageBase + TlsDir->StartAddressOfRawData);
-        n->memcpy(Chunk, TlsDataPtr, ChunkSize);
+        // ThreadLocalStoragePointer[tls index] should pointr to tls data.
 
-        auto TargetIdx  = 0;
+        auto Array  = ReCa<UINT_PTR*>(*TLSP);
+        Array[0     = ReCa<UINT_PTR>(TlsData);
 
-        for (UINT32 i = 0; i < 64; i++) {
-            if (*Array == 0) {
-                TargetIdx = i;
-                break;
-            }
-        }
-        Array[TargetIdx] = ReCa<UINT_PTR>(Chunk);
-        TlsDir->AddressOfIndex = TargetIdx;
-        */
+        // AddressOfIndex should pointer to tls index.
+        auto IndexPtr = _new<UINT_PTR>(n);
+        *IndexPtr = 0;
+        auto OldIndexPtr = TlsDir->AddressOfIndex;
+        TlsDir->AddressOfIndex = ReCa<UINT_PTR>(IndexPtr);
+
+        // Call tls callbacks.
         auto* Callbacks = ReCa<PIMAGE_TLS_CALLBACK*>(TlsDir->AddressOfCallBacks);
         while(Callbacks && (*Callbacks))
         {
             (*(Callbacks++))(ReCa<LPVOID>(ImageBase), DLL_PROCESS_ATTACH, nullptr);
         }
+
+        Array[0] = 0;
+        TlsDir->AddressOfIndex = OldIndexPtr;
     }
 
     if (OptHeader->AddressOfEntryPoint)
